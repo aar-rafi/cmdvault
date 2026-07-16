@@ -239,3 +239,38 @@ def test_copy_clipboard_skips_failing_tool(monkeypatch):
     monkeypatch.setattr(cv.shutil, "which", lambda name: None)
     monkeypatch.setattr(cv, "open", lambda *a, **k: (_ for _ in ()).throw(OSError()), raising=False)
     assert cv.copy_clipboard("x") is False
+
+
+# ---------------------------------------------------------------- warp export
+
+def test_warp_workflow_yaml_singleline():
+    entry = {"description": "Rebase onto main", "command": "git rebase --onto main old feature",
+             "project": "myapp", "uses": 3, "tags_binary": "git"}
+    y = cv.warp_workflow_yaml(entry)
+    assert 'name: "Rebase onto main"' in y
+    assert 'command: "git rebase --onto main old feature"' in y
+    assert 'tags: ["cmdvault", "git"]' in y
+
+
+def test_warp_workflow_yaml_multiline_block():
+    entry = {"description": "Loop", "command": "for f in *.txt\ndo\n  echo $f\ndone",
+             "project": "p", "uses": 1, "tags_binary": ""}
+    y = cv.warp_workflow_yaml(entry)
+    assert "command: |\n  for f in *.txt\n  do\n    echo $f\n  done" in y
+
+
+def test_export_warp_writes_files(vault, tmp_path, monkeypatch):
+    capture(monkeypatch, bash_payload("git rebase --onto main old feature", description="Rebase"))
+    out = tmp_path / "wf"
+    rc = cv.main(["export", "--warp", "--out", str(out)])
+    assert rc == 0
+    files = list(out.glob("cmdvault-*.yaml"))
+    assert len(files) == 1
+    text = files[0].read_text()
+    assert 'name: "Rebase"' in text
+    assert '"git"' in text  # binary tag extracted from note
+
+
+def test_export_warp_empty_vault(vault, tmp_path):
+    rc = cv.main(["export", "--warp", "--out", str(tmp_path / "wf")])
+    assert rc == 1

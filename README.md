@@ -48,6 +48,7 @@ the picker. Clipboard support autodetects `wl-copy`, `xclip`, or `pbcopy`.
 | `ccmd -p` | Same, filtered to commands captured in the current project |
 | `Ctrl-X Ctrl-R` | Pick a command and insert it directly into your prompt line (bash & zsh) |
 | `python3 scripts/cmdvault.py stats` | Vault statistics (counts by project/tag) |
+| `python3 scripts/cmdvault.py export --warp` | Export the vault as [Warp workflows](https://docs.warp.dev/terminal/entry/yaml-workflows) into Warp's local workflows folder (`--out DIR` to override, `-p` for current project only) |
 
 Or just browse the vault in Obsidian — every command is a note with frontmatter
 (description, project, usage count, tags) and renders as a syntax-highlighted code

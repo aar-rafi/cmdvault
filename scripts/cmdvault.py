@@ -461,6 +461,74 @@ def cmd_show(argv):
     return 0
 
 
+def default_warp_workflows_dir():
+    if sys.platform == "darwin":
+        return os.path.expanduser("~/.warp/workflows")
+    if os.name == "nt":
+        return os.path.join(os.environ.get("APPDATA", ""), "warp", "Warp", "data", "workflows")
+    xdg = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+    return os.path.join(xdg, "warp-terminal", "workflows")
+
+
+def yaml_scalar(text):
+    # JSON string encoding is a valid YAML flow scalar; multiline commands
+    # use a literal block instead so they stay readable.
+    if "\n" in text:
+        return "|\n" + "\n".join("  " + line for line in text.splitlines())
+    return json.dumps(text, ensure_ascii=False)
+
+
+def warp_workflow_yaml(entry):
+    lines = [
+        "---",
+        "name: %s" % yaml_scalar(entry["description"]),
+        "command: %s" % yaml_scalar(entry["command"]),
+    ]
+    tags = ["cmdvault"]
+    binary = entry.get("tags_binary")
+    if binary:
+        tags.append(binary)
+    lines.append("tags: [%s]" % ", ".join(json.dumps(t) for t in tags))
+    lines.append("description: %s" % yaml_scalar(
+        "Captured by cmdvault from a Claude Code session in project '%s' (used %dx)."
+        % (entry["project"], entry["uses"])))
+    return "\n".join(lines) + "\n"
+
+
+def cmd_export(argv):
+    if "--warp" not in argv:
+        print("usage: cmdvault export --warp [--out DIR] [-p]", file=sys.stderr)
+        return 1
+    out_dir = default_warp_workflows_dir()
+    if "--out" in argv:
+        try:
+            out_dir = argv[argv.index("--out") + 1]
+        except IndexError:
+            print("cmdvault: --out needs a directory", file=sys.stderr)
+            return 1
+    vault = vault_dir()
+    entries = load_entries(vault)
+    if "-p" in argv:
+        current = project_name(os.getcwd())
+        entries = [e for e in entries if e["project"] == current]
+    if not entries:
+        print("cmdvault: nothing to export", file=sys.stderr)
+        return 1
+    os.makedirs(out_dir, exist_ok=True)
+    for e in entries:
+        meta, _ = parse_note(e["path"])
+        tags = meta.get("tags") or []
+        if not isinstance(tags, list):
+            tags = [t.strip() for t in str(tags).strip("[]").split(",")]
+        extra = [t for t in tags if t and t != "claude-cmd"]
+        e["tags_binary"] = extra[0] if extra else ""
+        name = "cmdvault-%s-%s.yaml" % (slugify(e["description"]), e["id"])
+        with open(os.path.join(out_dir, name), "w", encoding="utf-8") as f:
+            f.write(warp_workflow_yaml(e))
+    print("cmdvault: exported %d workflows to %s" % (len(entries), out_dir))
+    return 0
+
+
 def cmd_stats():
     vault = vault_dir()
     entries = load_entries(vault)
@@ -473,7 +541,7 @@ def cmd_stats():
 
 # ---------------------------------------------------------------- entrypoint
 
-USAGE = "usage: cmdvault.py {capture|pick [-p]|show <id>|stats}"
+USAGE = "usage: cmdvault.py {capture|pick [-p]|show <id>|stats|export --warp [--out DIR] [-p]}"
 
 
 def main(argv=None):
@@ -493,6 +561,8 @@ def main(argv=None):
         return cmd_show(rest)
     if sub == "stats":
         return cmd_stats()
+    if sub == "export":
+        return cmd_export(rest)
     print(USAGE, file=sys.stderr)
     return 1
 
