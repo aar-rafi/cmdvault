@@ -1,0 +1,14 @@
+{
+  "name": "plugin-for-claude",
+  "owner": {
+    "name": "torr20"
+  },
+  "description": "Personal Claude Code plugins: cmdvault auto-captured command cookbook.",
+  "plugins": [
+    {
+      "name": "cmdvault",
+      "source": "./",
+      "description": "Warp-drive-style auto-captured command cookbook: stores successful Claude Code Bash commands as Obsidian notes and provides the ccmd fuzzy picker."
+    }
+  ]
+}

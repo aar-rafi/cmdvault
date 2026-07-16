@@ -1,0 +1,8 @@
+{
+  "name": "cmdvault",
+  "description": "Auto-captures the shell commands Claude Code runs successfully into an Obsidian vault as a searchable command cookbook, with a ccmd fuzzy picker for reuse.",
+  "version": "0.1.0",
+  "author": {
+    "name": "torr20"
+  }
+}
