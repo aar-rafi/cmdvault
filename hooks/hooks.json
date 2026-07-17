@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}\"/scripts/cmdvault.py capture"
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/capture-hook.cmd\""
           }
         ]
       }

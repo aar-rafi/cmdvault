@@ -50,7 +50,7 @@ to matter:
 4. **Success detection needs care** — exit code 0 plus "not interrupted by the
    user," since a Ctrl-C'd command is not an endorsement.
 
-Prototype's here if useful as a reference: <repo link>. It exports straight into
+Prototype's here if useful as a reference: https://github.com/aar-rafi/cmdvault. It exports straight into
 `~/.local/share/warp-terminal/workflows/`, so I'm already living with the UX — and
 honestly the auto-captured stuff gets reused way more than anything I ever saved
 by hand.

@@ -22,8 +22,26 @@ import subprocess
 import sys
 import traceback
 
-DEFAULT_VAULT = os.path.join(os.path.expanduser("~"), "Obsidian Vault", "Claude Commands")
-CONFIG_PATH = os.path.join(os.path.expanduser("~"), ".config", "cmdvault", "config.json")
+def _default_vault():
+    # Neutral, platform-appropriate default. Point it at an Obsidian vault
+    # folder via config/env if you want the notes to show up there.
+    if os.name == "nt":
+        base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
+        return os.path.join(base, "cmdvault", "commands")
+    xdg = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+    return os.path.join(xdg, "cmdvault", "commands")
+
+
+def _config_path():
+    if os.name == "nt":
+        base = os.environ.get("APPDATA") or os.path.expanduser("~")
+        return os.path.join(base, "cmdvault", "config.json")
+    xdg = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+    return os.path.join(xdg, "cmdvault", "config.json")
+
+
+DEFAULT_VAULT = _default_vault()
+CONFIG_PATH = _config_path()
 
 BLOCKLIST = {
     "ls", "ll", "pwd", "cd", "cat", "head", "tail", "less", "more", "echo",
@@ -47,13 +65,13 @@ def vault_dir():
     if env:
         return os.path.expanduser(env)
     try:
-        with open(CONFIG_PATH, encoding="utf-8") as f:
+        with open(_config_path(), encoding="utf-8") as f:
             configured = json.load(f).get("vault")
         if configured:
             return os.path.expanduser(configured)
     except Exception:
         pass
-    return DEFAULT_VAULT
+    return _default_vault()
 
 
 def raw_dir(vault):
@@ -365,6 +383,7 @@ def clipboard_backends():
         ["xclip", "-selection", "clipboard"],
         ["xsel", "--clipboard", "--input"],
         ["pbcopy"],
+        ["clip.exe"],  # native Windows and WSL
     ]
     if not wayland:
         tools = tools[1:] + tools[:1]  # try X11 tools before wl-copy
@@ -407,6 +426,26 @@ def copy_clipboard(text):
         return False
 
 
+def pick_numbered(entries, input_fn=input):
+    """Plain numbered picker for machines without fzf."""
+    top = entries[:20]
+    for i, e in enumerate(top, 1):
+        oneline = " ⏎ ".join(e["command"].splitlines())
+        print("%2d) %-45s %s" % (i, e["description"][:45], oneline[:60]), file=sys.stderr)
+    if len(entries) > len(top):
+        print("    ... %d more (install fzf for fuzzy search)" % (len(entries) - len(top)),
+              file=sys.stderr)
+    try:
+        choice = input_fn("pick> ").strip()
+        idx = int(choice)
+        entry = top[idx - 1]
+    except (ValueError, IndexError, EOFError, KeyboardInterrupt):
+        return 1
+    copy_clipboard(entry["command"])
+    print(entry["command"])
+    return 0
+
+
 def cmd_pick(argv):
     vault = vault_dir()
     entries = load_entries(vault)
@@ -418,9 +457,7 @@ def cmd_pick(argv):
               file=sys.stderr)
         return 1
     if not shutil.which("fzf"):
-        print("cmdvault: fzf not found — install it (e.g. pacman -S fzf / apt install fzf)",
-              file=sys.stderr)
-        return 1
+        return pick_numbered(entries)
     self_path = os.path.abspath(__file__)
     lines = []
     for e in entries:

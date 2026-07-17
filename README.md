@@ -1,76 +1,79 @@
 # cmdvault
 
-A Warp-drive-style **auto-captured command cookbook** for Claude Code.
+**Claude Code writes really good shell commands. Then they scroll away forever.**
 
-Every shell command Claude Code runs comes pre-annotated with a human-readable
-description. cmdvault captures the ones that succeed and are worth keeping, stores
-them as markdown notes in your Obsidian vault, and gives you a terminal fuzzy
-picker (`ccmd`) to reuse them — searchable by what the command *does*, not just
-what it says.
+cmdvault fixes that. Every time Claude runs a command that works, it gets saved —
+automatically, with the plain-English description Claude wrote for it. Later you
+fuzzy-search by *what the command does* ("rotate video 90 degrees", "find files
+changed last week") instead of trying to remember flag soup.
+
+```
+$ ccmd
+> rotate video
+  Rotate video 90 degrees clockwise      │ ffmpeg -i in.mp4 -vf "transpose=1" out.mp4
+  ...
+```
+
+No note-taking, no "I should save this", no habit to build. It just accumulates
+while you work.
 
 ## How it works
 
-1. A `PostToolUse` hook fires after every Bash command Claude runs.
-2. The raw event (success or failure) is appended to `.raw/events.jsonl` inside the
-   vault folder — nothing is ever thrown away, so smarter AI curation can be added
-   later.
-3. Successful commands pass through a heuristic filter that drops trivial noise
-   (`ls`, `cat`, `git status`, single-word commands, …) and keeps anything with
-   pipes, multiple flags, redirects, or real substance.
-4. Kept commands are upserted as one markdown note per unique command. Repeats bump
-   a `uses` counter instead of duplicating.
+A `PostToolUse` hook watches every Bash command Claude Code runs:
 
-The hook is fully defensive: it always exits 0 and can never break a Claude Code
-session. Internal errors go to `.raw/capture-errors.log`.
+- **Succeeded + interesting?** → saved as a markdown note (deduped — repeats bump a
+  use counter, so your most-used commands float to the top)
+- **Trivial noise** (`ls`, `cat`, `git status`...)? → filtered out by heuristics
+- **Everything**, success or failure → appended to a raw JSONL log, so smarter
+  curation can mine it later
+
+Your library is a folder of plain markdown files. No database, no lock-in — grep
+it, sync it, delete it, or point any notes app at it.
 
 ## Install
 
 ```
-# inside Claude Code
-/plugin marketplace add /home/torr20/Documents/plugin-for-claude
-/plugin install cmdvault@plugin-for-claude
+/plugin marketplace add aar-rafi/cmdvault
+/plugin install cmdvault@cmdvault
 ```
 
-Then add the shell integration to your `~/.bashrc` or `~/.zshrc`:
+Then (optional but recommended) run `/cmdvault:setup` inside Claude Code — it wires
+up the `ccmd` picker for your shell (bash/zsh/fish) and lets you choose where notes
+are stored.
 
-```sh
-source /home/torr20/Documents/plugin-for-claude/shell/cmdvault.sh
-```
-
-Requires `python3` (stdlib only) and [`fzf`](https://github.com/junegunn/fzf) for
-the picker. Clipboard support autodetects `wl-copy`, `xclip`, or `pbcopy`.
+That's it. Capture starts immediately in new sessions.
 
 ## Usage
 
 | Command | What it does |
-| --- | --- |
-| `ccmd` | Fuzzy-search all captured commands; selection is printed and copied to the clipboard |
-| `ccmd -p` | Same, filtered to commands captured in the current project |
-| `Ctrl-X Ctrl-R` | Pick a command and insert it directly into your prompt line (bash & zsh) |
-| `python3 scripts/cmdvault.py stats` | Vault statistics (counts by project/tag) |
-| `python3 scripts/cmdvault.py export --warp` | Export the vault as [Warp workflows](https://docs.warp.dev/terminal/entry/yaml-workflows) into Warp's local workflows folder (`--out DIR` to override, `-p` for current project only) |
+|---|---|
+| `ccmd` | Fuzzy-pick a captured command (fzf if installed, numbered list otherwise); prints it and copies to clipboard |
+| `ccmd -p` | Same, but only commands captured in the current project |
+| `Ctrl-X Ctrl-R` | Insert a picked command straight into your prompt |
+| `cmdvault.py stats` | What's in the vault, sorted by use count |
+| `cmdvault.py export --warp` | Export your library as [Warp workflows](https://docs.warp.dev/terminal/entry/yaml-workflows) |
 
-Or just browse the vault in Obsidian — every command is a note with frontmatter
-(description, project, usage count, tags) and renders as a syntax-highlighted code
-block.
+Clipboard works out of the box on Wayland, X11, KDE (via Klipper), macOS, Windows/WSL
+(`clip.exe`), and falls back to OSC52 (your terminal sets the clipboard — works over SSH).
 
-## Configuration
+## Where notes go
 
-Vault location resolution order:
+Default: `~/.local/share/cmdvault/commands` (platform-appropriate elsewhere).
 
-1. `CMDVAULT_DIR` environment variable
-2. `~/.config/cmdvault/config.json` → `{"vault": "/path/to/folder"}`
-3. Default: `~/Obsidian Vault/Claude Commands`
+**Obsidian user?** Point cmdvault at a folder inside your vault and every captured
+command becomes a browsable, taggable, linkable note:
 
-## Note format
+```json
+// ~/.config/cmdvault/config.json
+{ "vault": "/path/to/YourVault/Claude Commands" }
+```
 
-`Claude Commands/git-rebase-onto-a1b2c3d4.md`:
+(or set `CMDVAULT_DIR`, or run `/cmdvault:setup`). A note looks like:
 
 ````markdown
 ---
 description: "Rebase feature branch onto main"
 project: myapp
-cwd: /home/user/myapp
 first_used: 2026-07-16
 last_used: 2026-07-16
 uses: 3
@@ -85,10 +88,10 @@ git rebase --onto main old-base feature
 
 ## Roadmap
 
-- **Phase A (this)** — auto-capture + Obsidian storage + `ccmd` picker
-- **Phase B** — feed the library back to Claude Code, so future sessions reuse
-  commands that already worked instead of re-deriving them
-- **Phase C** — team sharing: vault as a git repo / lightweight web view, plus an
-  AI curation pass over the raw event log
+- **Done** — auto-capture, dedupe, heuristic noise filter, `ccmd` picker, Obsidian-friendly storage, Warp export
+- **Next** — feed the library back to Claude, so future sessions reuse commands that already worked instead of re-deriving them
+- **Later** — team-shared vaults (git), AI curation of the raw log, web view
 
-Design spec: [`docs/superpowers/specs/2026-07-16-cmdvault-design.md`](docs/superpowers/specs/2026-07-16-cmdvault-design.md)
+## Requirements
+
+Python 3 (any recent version, stdlib only). `fzf` optional but worth it. That's the list.

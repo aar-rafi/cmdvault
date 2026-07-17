@@ -274,3 +274,30 @@ def test_export_warp_writes_files(vault, tmp_path, monkeypatch):
 def test_export_warp_empty_vault(vault, tmp_path):
     rc = cv.main(["export", "--warp", "--out", str(tmp_path / "wf")])
     assert rc == 1
+
+
+# ---------------------------------------------------------------- v0.2 portability
+
+def test_default_vault_respects_xdg(monkeypatch):
+    monkeypatch.delenv("CMDVAULT_DIR", raising=False)
+    monkeypatch.setenv("XDG_DATA_HOME", "/xdg/data")
+    assert cv._default_vault() == "/xdg/data/cmdvault/commands"
+
+
+def test_pick_numbered_selects_and_prints(vault, monkeypatch, capsys):
+    capture(monkeypatch, bash_payload("git rebase --onto main old feature", description="Rebase"))
+    entries = cv.load_entries(str(vault))
+    monkeypatch.setattr(cv, "copy_clipboard", lambda t: True)
+    rc = cv.pick_numbered(entries, input_fn=lambda _: "1")
+    assert rc == 0
+    assert capsys.readouterr().out.strip() == "git rebase --onto main old feature"
+
+
+def test_pick_numbered_bad_input(vault, monkeypatch):
+    capture(monkeypatch, bash_payload("git rebase --onto main old feature", description="Rebase"))
+    entries = cv.load_entries(str(vault))
+    assert cv.pick_numbered(entries, input_fn=lambda _: "banana") == 1
+
+
+def test_clipboard_chain_includes_clip_exe():
+    assert ["clip.exe"] in cv.clipboard_backends()

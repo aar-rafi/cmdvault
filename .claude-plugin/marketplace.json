@@ -1,7 +1,7 @@
 {
-  "name": "plugin-for-claude",
+  "name": "cmdvault",
   "owner": {
-    "name": "torr20"
+    "name": "aar-rafi"
   },
   "description": "Personal Claude Code plugins: cmdvault auto-captured command cookbook.",
   "plugins": [
