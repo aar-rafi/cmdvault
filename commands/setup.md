@@ -31,9 +31,15 @@ Steps:
    updates, so prefer writing the resolved current path with a comment marker
    `# cmdvault` so it can be found and updated later.
 
-5. Mention nice-to-haves without pushing: `fzf` makes the picker fuzzy-searchable
-   (without it there's a numbered fallback); on Linux a clipboard tool (`wl-clipboard`
-   or `xclip`) helps, though KDE Klipper and OSC52 fallbacks usually cover it.
+5. Check optional dependencies and offer to install what's missing (ask first, use
+   the system's package manager, show the exact command before running it):
+   - `fzf` — makes the picker fuzzy-searchable; without it there's a numbered
+     fallback. Detect the package manager (`pacman -S fzf`, `apt install fzf`,
+     `dnf install fzf`, `brew install fzf`, `winget install fzf`) and offer to run it.
+   - Linux only, and only if `wl-copy`, `xclip`, `xsel`, and a KDE `qdbus` are ALL
+     absent: offer `wl-clipboard` (Wayland) or `xclip` (X11) for clipboard support,
+     noting the OSC52 terminal fallback usually covers modern terminals anyway.
+   Never install anything without explicit user approval in the conversation.
 
 6. Finish by confirming: store path, shell integration status, and remind them that
    capture is automatic — nothing else to do.
